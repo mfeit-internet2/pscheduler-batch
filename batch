@@ -97,15 +97,15 @@ def run_task(task_args):
 
     label, delay, spec, log = task_args
 
-    if delay:
-        log.debug("%s: Sleeping %ss before start", label, delay)
-        time.sleep(delay)
+    log.debug("%s: Spec is %s", label, pscheduler.json_dump(spec, pretty=True))
 
     if args.dry:
         log.debug("%s: Dry run; skipping task", label)
         return {}
 
-    log.debug("%s: Spec is %s", label, pscheduler.json_dump(spec, pretty=True))
+    if delay:
+        log.debug("%s: Sleeping %ss before start", label, delay)
+        time.sleep(delay)
 
     tasks_url = pscheduler.api_url(path="/tasks")
     log.debug("%s: Posting to %s", label, tasks_url)
