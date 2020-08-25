@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+
+# TODO: This needs to be run with Python2 for production
+
+import argparse
+import copy
+import datetime
+import multiprocessing
+import multiprocessing.dummy
+import pscheduler
+import sys
+import time
+
+
+#
+# Gargle the arguments
+#
+
+arg_parser = argparse.ArgumentParser(
+    usage="%(prog)s [options]",
+    epilog=
+"""
+Examples:
+  TODO: Fill this in.
+""",
+    formatter_class=argparse.RawTextHelpFormatter
+    )
+
+arg_parser.add_argument("--debug",
+                      help="Enable debugging to standard error",
+                      action="store_true",
+                      default=False,
+                      dest="debug")
+
+arg_parser.add_argument("--dry",
+                      help="Do a dry run",
+                      action="store_true",
+                      default=False,
+                      dest="dry")
+
+args = arg_parser.parse_args()
+
+
+log = pscheduler.Log(verbose=args.debug, debug=args.debug)
+
+# ------------------------------------------------------------------------------
+
+
+# Utility functions
+
+
+def die(message):
+    print(message, file=sys.stderr)
+    exit(1)
+
+
+
+def fail(message):
+    """
+    Construct a failure for run_task
+    """
+    return {
+        "succeeded": False,
+        "error": message
+    }
+
+
+def transformed_spec(spec, transform, number=0):
+    """
+    Run a transform against a spec and a number
+    """
+
+    assert isinstance(spec, dict)
+
+    if transform is None:
+        return spec
+
+    # We overwrite this, so don't clobber the original.
+    result = copy.deepcopy(spec)
+
+    # TODO: This works around a memory corruption problem in JQFilter
+    # when the args parameter is used.
+    script = transform.get("script", ".")
+    if isinstance(script, list):
+        script = "\n".join(script)
+    script = "%d as $number | %s" % (number, script)
+
+    filterer = pscheduler.JQFilter(script)
+
+    result["test"] = filterer(result["test"])[0]
+    return result
+
+
+
+def run_task(task_args):
+    """
+    Run a single task and return the result.
+    """
+
+    label, delay, spec, log = task_args
+
+    if delay:
+        log.debug("%s: Sleeping %ss before start", label, delay)
+        time.sleep(delay)
+
+    if args.dry:
+        log.debug("%s: Dry run; skipping task", label)
+        return {}
+
+    log.debug("%s: Spec is %s", label, pscheduler.json_dump(spec, pretty=True))
+
+    tasks_url = pscheduler.api_url(path="/tasks")
+    log.debug("%s: Posting to %s", label, tasks_url)
+
+    try:
+        status, task_url = pscheduler.url_post(tasks_url, data=pscheduler.json_dump(spec))
+    except Exception as ex:
+        return fail("Failed to post task: %s" % (str(ex)))
+
+    log.debug("%s: New task is %s", label, task_url)
+
+
+    # Fetch the posted task with extra details.
+
+    try:
+        status, task_data = pscheduler.url_get(task_url, params={"detail": True})
+        if status != 200:
+            return fail("Failed to get task data: %s" % (task_data))
+    except Exception as ex:
+        return fail("Failed to get task data: %s" % (str(ex)))
+
+    try:
+        first_run_url = task_data["detail"]["first-run-href"]
+    except KeyError:
+        return fail("Server returned incomplete data.")
+
+    log.debug("%s: First run is at %s", label, first_run_url)
+
+
+    # Get the first run
+
+    status, run_data = pscheduler.url_get(first_run_url)
+
+    if status == 404:
+        return fail("The server never scheduled a run for the task.")
+    if status != 200:
+        return fail("Error %d: %s" % (status, run_data))
+
+    for key in ["start-time", "end-time", "result-href"]:
+        if key not in run_data:
+            return fail("Server did not return %s with run data" % (key))
+
+    log.debug("%s: First run is %s", label, run_data["href"])
+
+    # Wait for the end time to pass.
+
+    try:
+        end_time = pscheduler.iso8601_as_datetime(run_data["end-time"])
+    except ValueError as ex:
+        return fail("Server did not return a valid end time for the task: %s" % (str(ex)))
+
+    now = pscheduler.time_now()
+    sleep_time = end_time - now if end_time > now else datetime.timedelta()
+    sleep_seconds = sleep_time.total_seconds()
+
+    log.debug("%s: Waiting %s seconds for run to finish", label, sleep_seconds)
+    time.sleep(sleep_seconds)
+
+    # Wait for the result to come available and fetch it.
+
+    log.debug("%s: Waiting for result at %s", label, run_data["result-href"])
+
+    status, result_data = pscheduler.url_get(run_data["result-href"],
+                                             params={"wait-merged": True})
+    if status != 200:
+        return fail("Did not get a result: %s" % (result_data))
+
+    # Get the current version of the run and return that.
+
+    status, run_data = pscheduler.url_get(first_run_url)
+
+    if status == 404:
+        return fail("The run disappeared.")
+    if status != 200:
+        return fail("Error %d: %s" % (status, run_data))
+
+    return run_data
+
+
+
+
+# ------------------------------------------------------------------------------
+
+
+try:
+    json = pscheduler.json_load(sys.stdin)
+except Exception as ex:
+    die(str(ex))
+
+# TODO: Validate the input.  Make sure JSON and transforms are okay
+
+
+for test in json["tasks"]:
+
+    number = test.get("number", 1)
+    label = test.get("label", "unlabeled")
+
+    if number == 0:
+        log.debug("Nothing to run; continuing.")
+        test["results"] = []
+        continue
+
+    spec = test["task"]
+    spec["schedule"] = {}
+
+    transform = test.get("test-transform", None)
+
+    backoff = pscheduler.timedelta_as_seconds(
+        pscheduler.iso8601_as_timedelta(test.get("backoff", "P0D")) )
+
+    run_task_args = []
+
+    for run_number in range(0,number):
+
+        label_num = "%s/%d" % (label, run_number)
+        transformed = transformed_spec(spec, transform, run_number)
+
+        run_task_args.append((label_num,
+                              backoff * run_number,
+                              transformed,
+                              log))
+
+
+    if test.get("parallel", False):
+
+        log.debug("Parallel run of %d tasks", number)
+
+        with multiprocessing.dummy.Pool(processes=number) as pool:
+            test["results"] = list(pool.imap(run_task, run_task_args, chunksize=1))
+
+    else:
+
+        test["results"] = [ run_task(arg) for arg in run_task_args ]
+
+
+
+print(pscheduler.json_dump(json, pretty=True))
+pscheduler.succeed()
+

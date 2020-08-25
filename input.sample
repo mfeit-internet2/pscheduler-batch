@@ -1,0 +1,61 @@
+{
+    "tasks": [
+	{
+	    "#": "Runs three idle tests in parallel",
+
+	    "label": "idle",
+	    "number": 0,
+	    "parallel": true,
+	    "backoff": "PT0.5S",
+	    "task": {
+		"test": {
+		    "type": "idle",
+		    "spec": {
+			"schema": 1,
+			"duration": "PT2S"
+		    }
+		}
+	    }
+	},
+	
+	{
+	    "#": "Runs two RTTs in sequence, each with an increasing number of",
+	    "#": "packets in the count, as specified by the transform.",
+
+	    "label": "rtt",
+	    "number": 2,
+	    "parallel": false,
+	    "task": {
+		"test": {
+		    "type": "rtt",
+		    "spec": {
+			"schema": 1,
+			"dest": "www.perfsonar.net"
+		    }
+		}
+	    },
+	    "test-transform": {
+		"script": [
+		    ".spec.count = $number + 1"
+		]
+	    }
+	},
+	
+	{
+	    "#": "This test is disabled by virtue of having a number of zero.",
+
+	    "label": "trace",
+	    "number": 0,
+	    "task": {
+		"test": {
+		    "type": "trace",
+		    "spec": {
+			"schema": 1,
+			"dest": "www.perfsonar.net"
+		    }
+		}
+	    }
+	}
+	
+    ]
+}
