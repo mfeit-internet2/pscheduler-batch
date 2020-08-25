@@ -238,8 +238,8 @@ for test in json["tasks"]:
     number = test.get("number", 1)
     label = test.get("label", "unlabeled")
 
-    if number == 0:
-        log.debug("Nothing to run; continuing.")
+    if number == 0 or (not test.get("enabled", True)):
+        log.debug("%s: Disabled", label)
         test["results"] = []
         continue
 
