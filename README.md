@@ -73,8 +73,6 @@ The program outputs the input as provided but adds an array of
 results, each of which is the run as pulled from the pScheduler API
 after the task completes.
 
-**NOTE:**  This format will change once multi-result tasks are supported.
-
 ```
 {
     "label": "rtt",
@@ -83,18 +81,27 @@ after the task completes.
     "task": { ... },
     "test-transform": { ... },
     "results": [
-        { ... Result 0 ... }, 
-        { ... Result 1 ... }, 
-        { ... Result 2 ... }, 
-        { ... Result 3 ... },
-        { ... Result 4 ... }
+        [ { ... Run 0 Result 0... }, { ... Run 0 Result 1... }, ... ],
+        [ { ... Run 1 Result 0... }, { ... Run 1 Result 1... }, ... ],
+        [ { ... Run 2 Result 0... }, { ... Run 2 Result 1... }, ... ],
+        [ { ... Run 3 Result 0... }, { ... Run 3 Result 1... }, ... ],
+        [ { ... Run 4 Result 0... }, { ... Run 4 Result 1... }, ... ]
     ]
 }
 ```
+
+Each result is a JSON object containing the following pairs:
+
+`application/json` (Object) - Result as raw JSON
+
+`text/plain` (String) - Result as plain text.
+
+`text/html` (String) - Result as HTML.
+
 
 ## Known Deficiences
 
 The input is not validated for correctness.
 
-Tasks that produce multiple runs (e.g., latencybg) are not yet
-supported.
+All results are held in memory until the whole batch is finished,
+which could result in process growth.

@@ -1,12 +1,11 @@
 {
     "tasks": [
 	{
-	    "#": "Runs three idle tests in parallel",
+	    "#": "Runs three idle tests serially",
 
 	    "label": "idle",
-	    "number": 0,
-	    "parallel": true,
-	    "backoff": "PT0.5S",
+	    "number": 3,
+	    "parallel": false,
 	    "task": {
 		"test": {
 		    "type": "idle",
@@ -19,12 +18,13 @@
 	},
 	
 	{
-	    "#": "Runs two RTTs in sequence, each with an increasing number of",
+	    "#": "Runs five RTTs in parallel, each with an increasing number of",
 	    "#": "packets in the count, as specified by the transform.",
 
 	    "label": "rtt",
-	    "number": 2,
-	    "parallel": false,
+	    "number": 5,
+	    "parallel": true,
+	    "backoff": "PT1S",
 	    "task": {
 		"test": {
 		    "type": "rtt",
@@ -55,7 +55,24 @@
 		    }
 		}
 	    }
+	},
+
+	{
+	    "#": "Runs a single idlebgm that will return multiple results.",
+
+	    "label": "idlebgm",
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"test": {
+		    "type": "idlebgm",
+		    "spec": {
+			"schema": 1,
+			"duration": "PT15S",
+			"interval": "PT3S"
+		    }
+		}
+	    }
 	}
-	
     ]
 }

@@ -121,7 +121,7 @@ def run_task(task_args):
     # Fetch the posted task with extra details.
 
     try:
-        status, task_data = pscheduler.url_get(task_url, params={"detail": True})
+        status, task_data = pscheduler.url_get(task_url, params={"detail": True}, throw=False)
         if status != 200:
             return fail("Failed to get task data: %s" % (task_data))
     except Exception as ex:
@@ -137,7 +137,7 @@ def run_task(task_args):
 
     # Get the first run
 
-    status, run_data = pscheduler.url_get(first_run_url)
+    status, run_data = pscheduler.url_get(first_run_url, throw=False)
 
     if status == 404:
         return fail("The server never scheduled a run for the task.")
@@ -169,18 +169,53 @@ def run_task(task_args):
     log.debug("%s: Waiting for result at %s", label, run_data["result-href"])
 
     status, result_data = pscheduler.url_get(run_data["result-href"],
-                                             params={"wait-merged": True})
-    if status != 200:
+                                             params={"wait-merged": True},
+                                             throw=False)
+
+    # TODO: 404 is only semi-kosher becasue bgmulti doesn't generate a
+    # result.  Need a fix in the server for this.
+    if status not in [200, 404]:
         return fail("Did not get a result: %s" % (result_data))
 
-    # Get the current version of the run and return that.
 
-    status, run_data = pscheduler.url_get(first_run_url)
+    # Get all runs and return them in all three formats
 
-    if status == 404:
-        return fail("The run disappeared.")
+    status, runs = pscheduler.url_get(task_data["detail"]["runs-href"], throw=False)
     if status != 200:
-        return fail("Error %d: %s" % (status, run_data))
+        return fail("Error %d getting runs: %s" % (status, runs))
+
+    run_data = []
+
+    for run in runs:
+
+        log.debug("%s: Fetching run %s", label, run)
+
+        status, run_json = pscheduler.url_get(run)
+        if status != 200:
+            # TODO: Probably not what we want.
+            return [ { "application/json": fail("Error %d getting runs: %s" % (status, runs)) } ]
+
+        result_href = run_json["result-href"]
+
+        run_set = { "application/json": run_json }
+
+        if "result-merged" in run_json:
+            for text_format in [ "application/json", "text/plain", "text/html" ]:
+                is_json = text_format == "application/json"
+                status, text = pscheduler.url_get(result_href,
+                                                  params={"format": text_format},
+                                                  json=is_json,
+                                                  throw=False)
+                if status == 200:
+                    log.debug("%s: Got %s result", label, text_format)
+                    run_set[text_format] = text
+                else:
+                    log.debug("%s: Failed to get %s: %d: %s", label, text_format, status, text)
+                    run_set[text_format] = fail("%d: %s" % (status, text))
+
+
+        run_data.append(run_set)
+
 
     return run_data
 
