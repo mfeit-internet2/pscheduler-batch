@@ -16,11 +16,7 @@ import time
 
 arg_parser = argparse.ArgumentParser(
     usage="%(prog)s [options]",
-    epilog=
-"""
-Examples:
-  TODO: Fill this in.
-""",
+    epilog=None,
     formatter_class=argparse.RawTextHelpFormatter
     )
 
