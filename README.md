@@ -21,8 +21,9 @@ Each task is a JSON object with the following pairs:
 
 `label` (String) - A label for the task, used for reference in debugging output.
 
-`number` (Number) - The number of times to run the task.  If set to
-zero, none will be run.
+`enabled` (Boolean) - Determines whether or not the task is run.  Defaults to `true`.
+
+`number` (Number) - The number of times to run the task.
 
 `parallel` (Boolean) - Whether or not the tasks should be run in
 parallel.
@@ -36,10 +37,11 @@ is `false`.
 `task` (Object) - A pScheduler task specification as would be produced
 using the `task` command's `--export` switch.
 
-`test-transform` - A jq transform that operates on each iteration of
-the task to make number-specific changes.  The `$number` variable is
-provided to indicate which iteration (starting with `0`) is being
-transformed.  The script should operate on the input in place.
+`task-transform` - A jq transform that operates the `task` section for
+each iteration to make number-specific changes.  The `$number`
+variable is provided to indicate which iteration (starting with `0`)
+is being transformed.  The script should operate on the input in
+place.
 
 
 For example, this task will run five sequential `rtt` tests to
@@ -59,9 +61,9 @@ For example, this task will run five sequential `rtt` tests to
 	    }
 	}
     },
-    "test-transform": {
+    "task-transform": {
 	"script": [
-	    ".spec.count = ($number + 1) * 2"
+	    ".test.spec.count = ($number + 1) * 2"
 	]
     }
 }

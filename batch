@@ -85,7 +85,7 @@ def transformed_spec(spec, transform, number=0):
 
     filterer = pscheduler.JQFilter(script)
 
-    result["test"] = filterer(result["test"])[0]
+    result["task"] = filterer(result["task"])[0]
     return result
 
 
@@ -246,7 +246,7 @@ for test in json["tasks"]:
     spec = test["task"]
     spec["schedule"] = {}
 
-    transform = test.get("test-transform", None)
+    transform = test.get("task-transform", None)
 
     backoff = pscheduler.timedelta_as_seconds(
         pscheduler.iso8601_as_timedelta(test.get("backoff", "P0D")) )
@@ -256,7 +256,7 @@ for test in json["tasks"]:
     for run_number in range(0,number):
 
         label_num = "%s/%d" % (label, run_number)
-        transformed = transformed_spec(spec, transform, run_number)
+        transformed = transformed_spec(test, transform, run_number)
 
         run_task_args.append((label_num,
                               backoff * run_number,
