@@ -35,9 +35,9 @@
 		    }
 		}
 	    },
-	    "test-transform": {
+	    "task-transform": {
 		"script": [
-		    ".spec.count = $number + 1"
+		    ".test.spec.count = $number + 1"
 		]
 	    }
 	},
