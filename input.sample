@@ -25,6 +25,7 @@
 	    "number": 5,
 	    "parallel": true,
 	    "backoff": "PT1S",
+	    "sync-start": true,
 	    "task": {
 		"test": {
 		    "type": "rtt",

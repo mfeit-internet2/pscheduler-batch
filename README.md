@@ -26,13 +26,26 @@ Each task is a JSON object with the following pairs:
 `number` (Number) - The number of times to run the task.
 
 `parallel` (Boolean) - Whether or not the tasks should be run in
-parallel.
+parallel.  This implies `sync-start` unless `sync-start` is explicitly
+set `false`.
+
+`setup-time` (Boolean) - The amount of time expected for pScheduler to
+set up a single run.  The default of `PT15S` should be more than
+sufficient in most cases.  This is ignored if not doing a synchronized
+start (see `sync-start`).
 
 `backoff` (String) - ISO8601 duration indicating how long each task
 run in parallel waits before being submitted to pScheduler.  The first
 will have no backoff, the second will have the indicated backoff, the
 third will have twice that, etc.  This value is ignored if `parallel`
 is `false`.
+
+`sync-start` (Boolean) - If running in parallel, set the start time of
+all tasks to be the same.  The time is based on the `number` of times
+the task is run, `backoff` and `setup-time`.  This value is ignored if
+`parallel` is `false`.  Note that tasks subject to restrictions on
+being run at the same time will not necessarily start in sync (or at
+all if not `slip` is allowed as part of the task's `schedule` section.
 
 `task` (Object) - A pScheduler task specification as would be produced
 using the `task` command's `--export` switch.

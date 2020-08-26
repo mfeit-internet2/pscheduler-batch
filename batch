@@ -167,6 +167,9 @@ def run_task(task_args):
 
     # Wait for the result to come available and fetch it.
 
+    # TODO: If everything stops all at once, there will be a run on
+    # the server.  Use a mutex to serialize this.
+
     log.debug("%s: Waiting for result at %s", label, run_data["result-href"])
 
     status, result_data = pscheduler.url_get(run_data["result-href"],
@@ -245,12 +248,43 @@ for test in json["tasks"]:
         continue
 
     spec = test["task"]
-    spec["schedule"] = {}
 
     transform = test.get("task-transform", None)
 
-    backoff = pscheduler.timedelta_as_seconds(
-        pscheduler.iso8601_as_timedelta(test.get("backoff", "P0D")) )
+    # TODO: It might be better to use a mutex to serialize access to
+    # the server instead of backoff.
+
+    backoff = pscheduler.iso8601_as_timedelta(test.get("backoff", "P0D"))
+    backoff_secs = pscheduler.timedelta_as_seconds(backoff)
+
+    if "schedule" in spec:
+
+        schedule = spec["schedule"]
+
+        # Scrub out anything that shouldn't be there.
+        for parameter in [ "start", "repeat", "repeat-cron", "until", "max-runs" ]:
+            try:
+                del schedule[parameter]
+            except KeyError:
+                pass  # Not there?  Don't care.
+
+    else:
+
+        spec["schedule"] = {}
+
+
+    parallel = test.get("parallel", False)
+
+    if parallel and test.get("sync-start", True):
+
+        # Make everything past all backoffs and setup time.
+        start_delay = (backoff * number) \
+                      + pscheduler.iso8601_as_timedelta(test.get("setup-time", "PT15S"))
+        start = pscheduler.datetime_as_iso8601(pscheduler.time_now() + start_delay)
+
+        log.debug("%s: Pushing start out %s to %s", label, start_delay, start)
+        spec["schedule"]["start"] = start
+
 
     run_task_args = []
 
@@ -260,14 +294,14 @@ for test in json["tasks"]:
         transformed = transformed_spec(test["task"], transform, run_number)
 
         run_task_args.append((label_num,
-                              backoff * run_number,
+                              backoff_secs * run_number,
                               transformed,
                               log))
 
 
-    if test.get("parallel", False):
+    if parallel:
 
-        log.debug("Parallel run of %d tasks", number)
+        log.debug("%s: Parallel run of %d tasks", label, number)
 
         with multiprocessing.dummy.Pool(processes=number) as pool:
             test["results"] = list(pool.imap(run_task, run_task_args, chunksize=1))
@@ -280,4 +314,3 @@ for test in json["tasks"]:
 
 print(pscheduler.json_dump(json, pretty=True))
 pscheduler.succeed()
-
