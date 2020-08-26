@@ -1,0 +1,225 @@
+{
+    "#": "This is a battery of tests used by Internet2 to exercise hardware",
+    "#": "being evaluated as potential high-capacity perfSONAR nodes.",
+
+    "#": "NOTES:",
+    "#": "Several items marked TODO: need to be resolved.",
+
+
+    "tasks": [
+
+	{
+	    "label": "L1",
+	    "enabled": true,
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test L1 - owping 1pps 600 packets",
+		    "cli": "pscheduler task latency --dest __DEST__ --packet-count 600 --packet-interval 1"
+		},
+		"test": {
+		    "spec": {
+			"dest": "__DEST__",
+			"packet-count": 600,
+			"packet-interval": 1.0,
+			"schema": 1
+		    },
+		    "type": "latency"
+		}
+	    }
+	},
+
+	{
+	    "label": "L2",
+	    "enabled": true,
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test L2 - Sequential Ping. Medium Rate - owping 10pps 3,000 packets",
+		    "cli": "pscheduler task latency --dest __DEST__ --packet-count 3000 --packet-interval 0.1"
+		},
+		"test": {
+		    "spec": {
+			"dest": "__DEST__",
+			"packet-count": 3000,
+			"packet-interval": 0.1,
+			"schema": 1
+		    },
+		    "type": "latency"
+		}
+	    }
+	},
+
+	{
+	    "label": "L3",
+	    "enabled": true,
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test L3 - Sequential Ping, High Rate - owping 100pps 30,000 packets",
+		    "cli": "pscheduler task latency --dest __DEST__ --packet-count 30000 --packet-interval .01"
+		},
+		"test": {
+		    "spec": {
+			"dest": "__DEST__",
+			"packet-count": 30000,
+			"packet-interval": 0.01,
+			"schema": 1
+		    },
+		    "type": "latency"
+		}
+	    }
+	},
+
+	{
+	    "label": "L4",
+	    "enabled": false,
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test L4 - Sequential Ping, Extended Duration - owping 10pps 24 hours",
+		    "cli": "TBD"
+		},
+		"test": {
+		    "type": "latancybg",
+		    "spec": {
+			"dest": "__DEST__",
+			"#": "TODO: Parameters for this are TBD in the document."
+		    }
+		}
+	    }
+	},
+
+	{
+	    "#": "TODO: Need L6 and L7, which are 50 and 100 concurrent.",
+	    "#": "TODO: Need a feature to sync start times.",
+
+	    "label": "L5",
+	    "enabled": true,
+	    "number": 20,
+	    "parallel": true,
+	    "backoff": "PT5S",
+
+	    "task": {
+		"reference": {
+		    "description": "Test L5 - 20 concurrent owping 10pps 3000 packets",
+		    "cli": "pscheduler task latency --dest __DEST__ --packet-count 3000 --packet-interval .1"
+		},
+		"test": {
+		    "spec": {
+			"dest": "__DEST__",
+			"packet-count": 3000,
+			"packet-interval": 0.1,
+			"schema": 1
+		    },
+		    "type": "latency"
+		}
+	    }
+	},
+
+
+	{
+	    "label": "T1",
+	    "enabled": true,
+	    "number": 1,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test T1 - Single stream TCP throughput 300 seconds, report results at 1 second intervals, ensure receiver reports are returned.",
+		    "cli": "pscheduler task throughput --dest __DEST__ --duration PT5M --interval 1"
+		},
+		"test": {
+		    "type": "throughput",
+		    "spec": {
+			"schema": 1,
+			"dest": "__DEST__",
+			"duration": "PT5M",
+			"interval": "PT1S",
+			"udp": false,
+			"#": "TODO: Matt says try this",
+			"#zero-copy": true
+		    }
+		}
+	    }
+	},
+
+	{
+	    "label": "T2",
+	    "enabled": false,
+	    "number": 2,
+	    "parallel": true,
+	    "backoff": "PT1M",
+	    "task": {
+		"reference": {
+		    "description": "Test T2 - Start a background latency test at 10pps for 600 seconds, then add the single-stream TCP throughput test for 300 seconds",
+
+		    "#": "The test will be filled in with one of these.",
+		    "tests": [
+			{
+			    "type": "latencybg",
+			    "spec": {
+				"schema": 1,
+				"dest": "__DEST__",
+				"#": "TODO: Need the rest of the parameters for this."
+			    }
+			},
+			{
+			    "type": "throughput",
+			    "spec": {
+				"schema": 1,
+				"dest": "__DEST__",
+				"duration": "PT5M",
+				"interval": "PT30S",
+				"udp": false
+			    }
+			}
+		    ]
+
+		},
+		"test": {
+		    "#": "This will be replaced by the transform."
+		}
+	    },
+	    "task-transform": {
+		"script": ".test = .reference.tests[$number]"
+	    }
+	},
+
+	{
+	    "label": "T3+T4",
+	    "enabled": true,
+	    "number": 10,
+	    "parallel": false,
+	    "task": {
+		"reference": {
+		    "description": "Test T3 - Iterate from 1 to 100 Gbps UDP by 10Gb increments using 1500 byte frames.",
+		    "cli": "pscheduler task throughput --dest __DEST__ --duration PT5M --interval 5 --udp"
+		},
+		"test": {
+		    "type": "throughput",
+		    "spec": {
+			"schema": 1,
+			"dest": "__DEST__",
+			"duration": "PT5M",
+			"interval": "PT5S",
+			"udp": true
+		    }
+		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "if $number == 0",
+		    "  then .test.spec.bandwidth = 1000000000",
+		    "  else .test.spec.bandwidth = ($number + 1) * 1000000000",
+		    "  end"
+		]
+	    }
+
+	}
+
+    ]
+}
