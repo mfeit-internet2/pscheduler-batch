@@ -16,7 +16,7 @@ $(REAL_INPUT): $(INPUT)
 TO_CLEAN += $(REAL_INPUT)
 
 # TODO: This should tee stderr to $(LOG)
-$(LOG): $(REAL_INPUT) batch
+$(RESULT): $(REAL_INPUT) batch
 	python2 -c 'import pscheduler' 2>/dev/null \
 	&& python2 ./batch $(RUN_ARGS) --debug < $(REAL_INPUT) > $(RESULT) \
 	|| python3 ./batch $(RUN_ARGS) --debug < $(REAL_INPUT) > $(RESULT)
@@ -25,7 +25,7 @@ TO_CLEAN += $(RESULT) $(LOG)
 dry:
 	$(MAKE) RUN_ARGS=--dry default
 
-test: $(LOG)
+test: $(RESULT)
 
 clean:
 	rm -rf $(TO_CLEAN) *~
