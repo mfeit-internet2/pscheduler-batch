@@ -113,6 +113,7 @@ def run_task(task_args):
     try:
         status, task_url = pscheduler.url_post(tasks_url, data=pscheduler.json_dump(spec))
     except Exception as ex:
+        log.debug("Failed: %s", str(ex))
         return fail("Failed to post task: %s" % (str(ex)))
 
     log.debug("%s: New task is %s", label, task_url)
@@ -256,7 +257,7 @@ for test in json["tasks"]:
     for run_number in range(0,number):
 
         label_num = "%s/%d" % (label, run_number)
-        transformed = transformed_spec(test, transform, run_number)
+        transformed = transformed_spec(test["task"], transform, run_number)
 
         run_task_args.append((label_num,
                               backoff * run_number,
