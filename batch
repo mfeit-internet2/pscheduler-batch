@@ -52,6 +52,26 @@ def die(message):
     exit(1)
 
 
+def jq_filter(transform, args={}):
+    """
+    Make a jq filter using a workaround for a memory corruption
+    problem in the production code.
+
+    TODO: Fix production.
+    """
+
+    script = transform["script"]
+    if isinstance(script, list):
+        script = "\n".join(script)
+
+    arg_lines = "".join([
+        "%s as $%s | " % (pscheduler.json_dump(value), name)
+        for name, value in args.items()
+    ])
+
+    return pscheduler.JQFilter(arg_lines + script)
+
+
 
 def fail(message):
     """
@@ -76,16 +96,10 @@ def transformed_spec(spec, transform, number=0):
     # We overwrite this, so don't clobber the original.
     result = copy.deepcopy(spec)
 
-    # TODO: This works around a memory corruption problem in JQFilter
-    # when the args parameter is used.
-    script = transform.get("script", ".")
-    if isinstance(script, list):
-        script = "\n".join(script)
-    script = "%d as $number | %s" % (number, script)
+    filterer = jq_filter(transform, args={"number": number})
 
-    filterer = pscheduler.JQFilter(script)
+    result = filterer(result)[0]
 
-    result["task"] = filterer(result["task"])[0]
     return result
 
 
@@ -228,13 +242,87 @@ def run_task(task_args):
 
 # ------------------------------------------------------------------------------
 
+# Get and validate the input
 
 try:
     json = pscheduler.json_load(sys.stdin)
 except Exception as ex:
     die(str(ex))
 
-# TODO: Validate the input.  Make sure JSON and transforms are okay
+INPUT_SCHEMA = {
+
+    "local": {
+        "task": {
+            "type": "object",
+            "properties": {
+                "label": { "$ref": "#/pScheduler/String" },
+                "enabled": { "$ref": "#/pScheduler/Boolean" },
+                "number": { "$ref": "#/pScheduler/Cardinal" },
+                "parallel": { "$ref": "#/pScheduler/Boolean" },
+                "backoff": { "$ref": "#/pScheduler/Duration" },
+                "sync-start": { "$ref": "#/pScheduler/Boolean" },
+                "task": { "$ref": "#/pScheduler/AnyJSON" },  # Validated later.
+                "task-transform": { "$ref": "#/pScheduler/JQTransformSpecification" }
+            },
+            "additionalProperties": False,
+            "required": [
+                "task"
+            ]
+        }
+    },
+
+    "type": "object",
+    "properties": {
+        "schema": { "type": "integer" },
+        "tasks": { 
+            "type": "array",
+            "items": { "$ref": "#/local/task" }
+        },
+    },
+    "additionalProperties": False,
+    "required": [
+        "tasks",
+    ]
+}
+
+# Validate the basic structure
+valid, message = pscheduler.json_validate(json, INPUT_SCHEMA, max_schema=1)
+if not valid:
+    die(message)
+
+
+# Validate the tasks
+for number, task in enumerate(json["tasks"]):
+
+    if not task.get("enabled", True):
+        log.debug("Skipping disabled task %d", number)
+        continue
+
+    log.debug("Validating %s: %s",
+              task.get("label", "task %d" % (number)),
+              pscheduler.json_dump(task, pretty=True))
+
+    if "transform" in task:
+        iterations = task.get("number", 1)
+    else:
+        log.debug("No transform, validating only one iteration.")
+        iterations = 1
+
+    for iteration in range(0, iterations):
+        log.debug("Iteration %d", iteration)
+        try:
+            transformed = transformed_spec(task["task"], task.get("task-transform", None), iteration)
+            log.debug("Transformed to %s", pscheduler.json_dump(transformed, pretty=True))
+        except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
+            die("At /tasks/%d/task-transform iteration %d: %s" % (number, iteration, ex))
+
+        valid, message = pscheduler.json_validate(transformed, { "$ref": "#/pScheduler/TaskSpecification" })
+        if not valid:
+            die("At /tasks/%d/task iteration %d: %s" % (number, iteration, message))
+
+
+
+# ------------------------------------------------------------------------------
 
 
 for test in json["tasks"]:
@@ -291,6 +379,8 @@ for test in json["tasks"]:
     for run_number in range(0,number):
 
         label_num = "%s/%d" % (label, run_number)
+
+        # TODO: This throws if there's a problem.
         transformed = transformed_spec(test["task"], transform, run_number)
 
         run_task_args.append((label_num,
