@@ -43,10 +43,9 @@
 	},
 	
 	{
-	    "#": "This test is disabled by virtue of having a number of zero.",
-
 	    "label": "trace",
-	    "number": 0,
+	    "number": 3,
+	    "enabled": false,
 	    "task": {
 		"test": {
 		    "type": "trace",
