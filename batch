@@ -7,6 +7,7 @@ import multiprocessing
 import multiprocessing.dummy
 import pscheduler
 import sys
+import threading
 import time
 
 
@@ -41,15 +42,6 @@ log = pscheduler.Log(verbose=args.debug, debug=args.debug)
 
 
 # Utility functions
-
-
-def die(message):
-    """
-    Exit with an error
-    """
-    # TODO: For Py3, use print(message, file=sys.stderr)
-    sys.stderr.write(message + "\n")
-    exit(1)
 
 
 def jq_filter(transform, args={}):
@@ -250,7 +242,7 @@ def run_task(task_args):
 try:
     json = pscheduler.json_load(sys.stdin)
 except Exception as ex:
-    die(str(ex))
+    pscheduler.fail(str(ex))
 
 
 INPUT_SCHEMA = {
@@ -293,7 +285,7 @@ INPUT_SCHEMA = {
 # Validate the basic structure
 valid, message = pscheduler.json_validate(json, INPUT_SCHEMA, max_schema=1)
 if not valid:
-    die(message)
+    pscheduler.fail(message)
 
 
 input_global = json.get("global", None)
@@ -322,11 +314,11 @@ for job_number, job in enumerate(json["jobs"]):
                                            iteration, input_global)
             log.debug("Transformed to %s", pscheduler.json_dump(transformed, pretty=True))
         except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
-            die("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
+            pscheduler.fail("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
 
         valid, message = pscheduler.json_validate(transformed, { "$ref": "#/pScheduler/TaskSpecification" })
         if not valid:
-            die("At /jobs/%d/task iteration %d: %s" % (job_number, iteration, message))
+            pscheduler.fail("At /jobs/%d/task iteration %d: %s" % (job_number, iteration, message))
 
 
 
@@ -392,7 +384,7 @@ for job in json["jobs"]:
         try:
             transformed = transformed_spec(job["task"], transform, iteration, input_global)
         except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
-            die("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
+            pscheduler.fail("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
 
         run_task_args.append((label_num,
                               backoff_secs * iteration,
