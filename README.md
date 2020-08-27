@@ -23,7 +23,7 @@ Each task is a JSON object with the following pairs:
 
 `enabled` (Boolean) - Determines whether or not the task is run.  Defaults to `true`.
 
-`number` (Number) - The number of times to run the task.
+`iterations` (Number) - The number of times to run the task.
 
 `parallel` (Boolean) - Whether or not the tasks should be run in
 parallel.  This implies `sync-start` unless `sync-start` is explicitly
@@ -51,7 +51,7 @@ all if not `slip` is allowed as part of the task's `schedule` section.
 using the `task` command's `--export` switch.
 
 `task-transform` - A jq transform that operates the `task` section for
-each iteration to make number-specific changes.  The `$number`
+each iteration to make iteration-specific changes.  The `$iteration`
 variable is provided to indicate which iteration (starting with `0`)
 is being transformed.  The script should operate on the input in
 place.
@@ -63,7 +63,7 @@ For example, this task will run five sequential `rtt` tests to
 ```
 {
     "label": "rtt",
-    "number": 5,
+    "iterations": 5,
     "parallel": false,
     "task": {
 	"test": {
@@ -76,7 +76,7 @@ For example, this task will run five sequential `rtt` tests to
     },
     "task-transform": {
 	"script": [
-	    ".test.spec.count = ($number + 1) * 2"
+	    ".test.spec.count = ($iteration + 1) * 2"
 	]
     }
 }
@@ -91,7 +91,7 @@ after the task completes.
 ```
 {
     "label": "rtt",
-    "number": 5,
+    "iterations": 5,
     "parallel": false,
     "task": { ... },
     "test-transform": { ... },
@@ -131,12 +131,12 @@ to alter the contents of the `test` pair for each iteration.
 
  * Put an array of the tests to be run in the task's `reference` pair.
    The length of the array should be the same as the specified
-   `number`.
+   `iterations`.
 
  * Leave the task's `test` section as an empty object (`{}`).
 
  * Add a `task-transform` that replaces the test with an element from
-   the array (e.g., `.test = .reference.tests[$number]`).
+   the array (e.g., `.test = .reference.tests[$iteration]`).
 
 
 This example runs a three-minute-long streaming latency test with a
@@ -148,7 +148,7 @@ beforehand and afterward.
 ```
 {
     "label": "different-in-parallel",
-    "number": 2,
+    "iterations": 2,
     "parallel": true,
     "backoff": "PT1M",
     "task": {
@@ -174,7 +174,7 @@ beforehand and afterward.
 	"test": { }
     },
     "task-transform": {
-	"script": ".test = .reference.tests[$number]"
+	"script": ".test = .reference.tests[$iteration]"
     }
 }
 ```

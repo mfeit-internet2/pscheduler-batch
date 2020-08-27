@@ -4,7 +4,7 @@
 	    "#": "Runs three idle tests serially",
 
 	    "label": "idle",
-	    "number": 3,
+	    "iterations": 3,
 	    "parallel": false,
 	    "task": {
 		"test": {
@@ -22,7 +22,7 @@
 	    "#": "packets in the count, as specified by the transform.",
 
 	    "label": "rtt",
-	    "number": 5,
+	    "iterations": 5,
 	    "parallel": true,
 	    "backoff": "PT1S",
 	    "sync-start": true,
@@ -37,14 +37,14 @@
 	    },
 	    "task-transform": {
 		"script": [
-		    ".test.spec.count = $number + 1"
+		    ".test.spec.count = $iteration + 1"
 		]
 	    }
 	},
 	
 	{
 	    "label": "trace",
-	    "number": 3,
+	    "iterations": 3,
 	    "enabled": false,
 	    "task": {
 		"test": {
@@ -61,7 +61,7 @@
 	    "#": "Runs a single idlebgm that will return multiple results.",
 
 	    "label": "idlebgm",
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"test": {

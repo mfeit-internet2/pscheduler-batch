@@ -11,7 +11,7 @@
 	{
 	    "label": "L1",
 	    "enabled": true,
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"reference": {
@@ -33,7 +33,7 @@
 	{
 	    "label": "L2",
 	    "enabled": true,
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"reference": {
@@ -55,7 +55,7 @@
 	{
 	    "label": "L3",
 	    "enabled": true,
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"reference": {
@@ -77,7 +77,7 @@
 	{
 	    "label": "L4",
 	    "enabled": false,
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"reference": {
@@ -100,7 +100,7 @@
 
 	    "label": "L5",
 	    "enabled": true,
-	    "number": 20,
+	    "iterations": 20,
 	    "parallel": true,
 	    "backoff": "PT5S",
 
@@ -125,7 +125,7 @@
 	{
 	    "label": "T1",
 	    "enabled": true,
-	    "number": 1,
+	    "iterations": 1,
 	    "parallel": false,
 	    "task": {
 		"reference": {
@@ -150,7 +150,7 @@
 	{
 	    "label": "T2",
 	    "enabled": false,
-	    "number": 2,
+	    "iterations": 2,
 	    "parallel": true,
 	    "backoff": "PT1M",
 	    "task": {
@@ -192,7 +192,7 @@
 	{
 	    "label": "T3+T4",
 	    "enabled": true,
-	    "number": 10,
+	    "iterations": 10,
 	    "parallel": false,
 	    "task": {
 		"reference": {
