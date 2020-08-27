@@ -388,8 +388,11 @@ for job in json["jobs"]:
 
         label_num = "%s/%d" % (label, iteration)
 
-        # TODO: This throws if there's a problem.
-        transformed = transformed_spec(job["task"], transform, iteration, input_global)
+        # This will have been tried during validation, but safety can't hurt.
+        try:
+            transformed = transformed_spec(job["task"], transform, iteration, input_global)
+        except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
+            die("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
 
         run_task_args.append((label_num,
                               backoff_secs * iteration,
