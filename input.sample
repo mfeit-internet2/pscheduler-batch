@@ -1,4 +1,9 @@
 {
+    "global": {    
+        "#": "This data is made available as $global in all task transforms.",
+        "count_multiplier": 2
+    },
+
     "jobs": [
 	{
 	    "#": "Runs three idle tests serially",
@@ -36,8 +41,8 @@
 		}
 	    },
 	    "task-transform": {
-		"script": [
-		    ".test.spec.count = $iteration + 1"
+		"script": [		
+		    ".test.spec.count = ($iteration * $global.count_multiplier) + 1"
 		]
 	    }
 	},

@@ -11,11 +11,20 @@ be folded into pSchedler as a command.
 
 ```
 {
+    "global": { ... Any JSON ... },
     "jobs": [ ... List of jobs ... ]
 }
 ```
 
-### Jobs
+### `global`
+
+The `global` pair is an optional block of arbitrary JSON which is made
+available to all task transforms (see `task-transform`, below).
+
+If not provided, its value will be `null`.
+
+
+### `jobs`
 
 Each job is a JSON object with the following pairs:
 

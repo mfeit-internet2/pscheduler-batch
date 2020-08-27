@@ -83,7 +83,7 @@ def fail(message):
     }
 
 
-def transformed_spec(spec, transform, iteration=0):
+def transformed_spec(spec, transform, iteration=0, globaldata=None):
     """
     Run a transform against a spec and an iteration
     """
@@ -96,7 +96,10 @@ def transformed_spec(spec, transform, iteration=0):
     # We overwrite this, so don't clobber the original.
     result = copy.deepcopy(spec)
 
-    filterer = jq_filter(transform, args={"iteration": iteration})
+    filterer = jq_filter(transform, args={
+        "global": globaldata,
+        "iteration": iteration
+    })
 
     result = filterer(result)[0]
 
@@ -249,6 +252,7 @@ try:
 except Exception as ex:
     die(str(ex))
 
+
 INPUT_SCHEMA = {
 
     "local": {
@@ -274,6 +278,7 @@ INPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "schema": { "type": "integer" },
+        "global": { "$ref": "#/pScheduler/AnyJSON" },
         "jobs": { 
             "type": "array",
             "items": { "$ref": "#/local/job" }
@@ -290,6 +295,8 @@ valid, message = pscheduler.json_validate(json, INPUT_SCHEMA, max_schema=1)
 if not valid:
     die(message)
 
+
+input_global = json.get("global", None)
 
 # Validate the jobs
 for job_number, job in enumerate(json["jobs"]):
@@ -311,7 +318,8 @@ for job_number, job in enumerate(json["jobs"]):
     for iteration in range(0, iterations):
         log.debug("Iteration %d", iteration)
         try:
-            transformed = transformed_spec(job["task"], job.get("task-transform", None), iteration)
+            transformed = transformed_spec(job["task"], job.get("task-transform", None),
+                                           iteration, input_global)
             log.debug("Transformed to %s", pscheduler.json_dump(transformed, pretty=True))
         except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
             die("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
@@ -381,7 +389,7 @@ for job in json["jobs"]:
         label_num = "%s/%d" % (label, iteration)
 
         # TODO: This throws if there's a problem.
-        transformed = transformed_spec(job["task"], transform, iteration)
+        transformed = transformed_spec(job["task"], transform, iteration, input_global)
 
         run_task_args.append((label_num,
                               backoff_secs * iteration,
