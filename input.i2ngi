@@ -5,6 +5,15 @@
     "#": "NOTES:",
     "#": "Several items marked TODO: need to be resolved.",
 
+    "global": {
+	"source": null,
+	"dest": "tb-el7-prod.ps.dev.internet2.edu",
+	"throughput": {
+	    "tool": "iperf2",
+	    "cores": 6
+	}
+    },
+
     "jobs": [
 
 	{
@@ -26,6 +35,16 @@
 		    },
 		    "type": "latency"
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end"
+		]
 	    }
 	},
 
@@ -48,6 +67,16 @@
 		    },
 		    "type": "latency"
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end"
+		]
 	    }
 	},
 
@@ -70,6 +99,16 @@
 		    },
 		    "type": "latency"
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end"
+		]
 	    }
 	},
 
@@ -90,6 +129,16 @@
 			"#": "TODO: Parameters for this are TBD in the document."
 		    }
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end"
+		]
 	    }
 	},
 
@@ -117,6 +166,16 @@
 		    },
 		    "type": "latency"
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end"
+		]
 	    }
 	},
 
@@ -143,6 +202,18 @@
 			"#zero-copy": true
 		    }
 		}
+	    },
+	    "task-transform": {
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end",
+		    "| .tools = [ $global.throughput.tool ]",
+		    "| .test.spec.parallel = $global.throughput.cores"
+		]
 	    }
 	},
 
@@ -184,7 +255,17 @@
 		}
 	    },
 	    "task-transform": {
-		"script": ".test = .reference.tests[$number]"
+		"script": [
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end",
+		    "| .test = .reference.tests[$iteration]",
+		    "| .tools = [ $global.throughput.tool ]",
+		    "| .test.spec.parallel = $global.throughput.cores"
+		]
 	    }
 	},
 
@@ -211,13 +292,20 @@
 	    },
 	    "task-transform": {
 		"script": [
-		    "if $number == 0",
+		    "  if $global.source != null",
+		    "  then .test.spec.source = $global.source",
+		    "  else . end",
+		    "| if $global.dest != null",
+		    "  then .test.spec.dest = $global.dest",
+		    "  else . end",
+		    "| if $iteration == 0",
 		    "  then .test.spec.bandwidth = 1000000000",
-		    "  else .test.spec.bandwidth = ($number + 1) * 1000000000",
-		    "  end"
+		    "  else .test.spec.bandwidth = ($iteration + 1) * 1000000000",
+		    "  end",
+		    "| .tools = [ $global.throughput.tool ]",
+		    "| .test.spec.parallel = $global.throughput.cores"
 		]
 	    }
-
 	}
 
     ]
