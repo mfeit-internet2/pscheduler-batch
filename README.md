@@ -120,3 +120,61 @@ The input is not validated for correctness.
 
 All results are held in memory until the whole batch is finished,
 which could result in process growth.
+
+
+## Tips and Tricks
+
+### Running Different Tasks in Parallel
+
+Different tests can be run in parallel by using the `task-transform`
+to alter the contents of the `test` pair for each iteration.
+
+ * Put an array of the tests to be run in the task's `reference` pair.
+   The length of the array should be the same as the specified
+   `number`.
+
+ * Leave the task's `test` section as an empty object (`{}`).
+
+ * Add a `task-transform` that replaces the test with an element from
+   the array (e.g., `.test = .reference.tests[$number]`).
+
+
+This example runs a three-minute-long streaming latency test with a
+throughput test to the same host during the second minute.  The
+`backoff` value makes the througput test sleep for one minute before
+it is scheduled and started so there's latency data produced
+beforehand and afterward.
+
+```
+{
+    "label": "different-in-parallel",
+    "number": 2,
+    "parallel": true,
+    "backoff": "PT1M",
+    "task": {
+	"reference": {
+	    "tests": [
+		{
+		    "type": "latencybg",
+		    "spec": {
+			"dest": "ps.example.net",
+			"duration": "PT3M"
+		    }
+		},
+		{
+		    "type": "throughput",
+		    "spec": {
+			"dest": "ps.example.net",
+			"duration": "PT1M"
+		    }
+		}
+	    ]
+
+	},
+	"test": { }
+    },
+    "task-transform": {
+	"script": ".test = .reference.tests[$number]"
+    }
+}
+```
