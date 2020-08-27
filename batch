@@ -252,7 +252,7 @@ except Exception as ex:
 INPUT_SCHEMA = {
 
     "local": {
-        "task": {
+        "job": {
             "type": "object",
             "properties": {
                 "label": { "$ref": "#/pScheduler/String" },
@@ -274,14 +274,14 @@ INPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "schema": { "type": "integer" },
-        "tasks": { 
+        "jobs": { 
             "type": "array",
-            "items": { "$ref": "#/local/task" }
+            "items": { "$ref": "#/local/job" }
         },
     },
     "additionalProperties": False,
     "required": [
-        "tasks",
+        "jobs",
     ]
 }
 
@@ -291,19 +291,19 @@ if not valid:
     die(message)
 
 
-# Validate the tasks
-for task_number, task in enumerate(json["tasks"]):
+# Validate the jobs
+for job_number, job in enumerate(json["jobs"]):
 
-    if not task.get("enabled", True):
-        log.debug("Skipping disabled task %d", task_number)
+    if not job.get("enabled", True):
+        log.debug("Skipping disabled job %d", job_number)
         continue
 
     log.debug("Validating %s: %s",
-              task.get("label", "task %d" % (task_number)),
-              pscheduler.json_dump(task, pretty=True))
+              job.get("label", "job %d" % (job_number)),
+              pscheduler.json_dump(job, pretty=True))
 
-    if "transform" in task:
-        iterations = task.get("iterations", 1)
+    if "transform" in job:
+        iterations = job.get("iterations", 1)
     else:
         log.debug("No transform, validating only one iteration.")
         iterations = 1
@@ -311,38 +311,38 @@ for task_number, task in enumerate(json["tasks"]):
     for iteration in range(0, iterations):
         log.debug("Iteration %d", iteration)
         try:
-            transformed = transformed_spec(task["task"], task.get("task-transform", None), iteration)
+            transformed = transformed_spec(job["task"], job.get("task-transform", None), iteration)
             log.debug("Transformed to %s", pscheduler.json_dump(transformed, pretty=True))
         except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
-            die("At /tasks/%d/task-transform iteration %d: %s" % (task_number, iteration, ex))
+            die("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
 
         valid, message = pscheduler.json_validate(transformed, { "$ref": "#/pScheduler/TaskSpecification" })
         if not valid:
-            die("At /tasks/%d/task iteration %d: %s" % (task_number, iteration, message))
+            die("At /jobs/%d/task iteration %d: %s" % (job_number, iteration, message))
 
 
 
 # ------------------------------------------------------------------------------
 
 
-for test in json["tasks"]:
+for job in json["jobs"]:
 
-    iterations = test.get("iterations", 1)
-    label = test.get("label", "unlabeled")
+    iterations = job.get("iterations", 1)
+    label = job.get("label", "unlabeled")
 
-    if iterations == 0 or (not test.get("enabled", True)):
+    if iterations == 0 or (not job.get("enabled", True)):
         log.debug("%s: Disabled", label)
-        test["results"] = []
+        job["results"] = []
         continue
 
-    spec = test["task"]
+    spec = job["task"]
 
-    transform = test.get("task-transform", None)
+    transform = job.get("task-transform", None)
 
     # TODO: It might be better to use a mutex to serialize access to
     # the server instead of backoff.
 
-    backoff = pscheduler.iso8601_as_timedelta(test.get("backoff", "P0D"))
+    backoff = pscheduler.iso8601_as_timedelta(job.get("backoff", "P0D"))
     backoff_secs = pscheduler.timedelta_as_seconds(backoff)
 
     if "schedule" in spec:
@@ -361,13 +361,13 @@ for test in json["tasks"]:
         spec["schedule"] = {}
 
 
-    parallel = test.get("parallel", False)
+    parallel = job.get("parallel", False)
 
-    if parallel and test.get("sync-start", True):
+    if parallel and job.get("sync-start", True):
 
         # Make everything past all backoffs and setup time.
         start_delay = (backoff * iterations) \
-                      + pscheduler.iso8601_as_timedelta(test.get("setup-time", "PT15S"))
+                      + pscheduler.iso8601_as_timedelta(job.get("setup-time", "PT15S"))
         start = pscheduler.datetime_as_iso8601(pscheduler.time_now() + start_delay)
 
         log.debug("%s: Pushing start out %s to %s", label, start_delay, start)
@@ -381,7 +381,7 @@ for test in json["tasks"]:
         label_num = "%s/%d" % (label, iteration)
 
         # TODO: This throws if there's a problem.
-        transformed = transformed_spec(test["task"], transform, iteration)
+        transformed = transformed_spec(job["task"], transform, iteration)
 
         run_task_args.append((label_num,
                               backoff_secs * iteration,
@@ -394,11 +394,11 @@ for test in json["tasks"]:
         log.debug("%s: Parallel run of %d tasks", label, iteration)
 
         with multiprocessing.dummy.Pool(processes=iteration) as pool:
-            test["results"] = list(pool.imap(run_task, run_task_args, chunksize=1))
+            job["results"] = list(pool.imap(run_task, run_task_args, chunksize=1))
 
     else:
 
-        test["results"] = [ run_task(arg) for arg in run_task_args ]
+        job["results"] = [ run_task(arg) for arg in run_task_args ]
 
 
 

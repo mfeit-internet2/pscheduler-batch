@@ -2,8 +2,8 @@
 Batch Runner for pScheduler
 
 This is temporary development for a program that runs pScheduler tasks
-in batches and returns the results.  It will eventually be folded into
-pSchedler as a command.
+in batches called _jobs_ and returns the results.  It will eventually
+be folded into pSchedler as a command.
 
 ## Input
 
@@ -11,41 +11,44 @@ pSchedler as a command.
 
 ```
 {
-    "tasks": [ ... List of tasks ... ]
+    "jobs": [ ... List of jobs ... ]
 }
 ```
 
-### Task
+### Jobs
 
-Each task is a JSON object with the following pairs:
+Each job is a JSON object with the following pairs:
 
-`label` (String) - A label for the task, used for reference in debugging output.
+`label` (String) - A label for the job, used for reference in
+debugging output.
 
-`enabled` (Boolean) - Determines whether or not the task is run.  Defaults to `true`.
+`enabled` (Boolean) - Determines whether or not the job is run.
+Defaults to `true`.
 
-`iterations` (Number) - The number of times to run the task.
+`iterations` (Number) - The number of times to run the specified task.
 
-`parallel` (Boolean) - Whether or not the tasks should be run in
-parallel.  This implies `sync-start` unless `sync-start` is explicitly
-set `false`.
+`parallel` (Boolean) - Whether or not the job's iterations should be
+run in parallel.  This defaults to `false` and implies `sync-start`
+unless `sync-start` is explicitly set `false`.
 
 `setup-time` (Boolean) - The amount of time expected for pScheduler to
 set up a single run.  The default of `PT15S` should be more than
 sufficient in most cases.  This is ignored if not doing a synchronized
 start (see `sync-start`).
 
-`backoff` (String) - ISO8601 duration indicating how long each task
-run in parallel waits before being submitted to pScheduler.  The first
-will have no backoff, the second will have the indicated backoff, the
-third will have twice that, etc.  This value is ignored if `parallel`
-is `false`.
+`backoff` (String) - ISO8601 duration indicating how long each
+iteration run in parallel waits before being submitted to pScheduler.
+The first will have no backoff, the second will have the indicated
+backoff, the third will have twice that, etc.  This value is ignored
+if `parallel` is `false`.
 
 `sync-start` (Boolean) - If running in parallel, set the start time of
-all tasks to be the same.  The time is based on the `number` of times
-the task is run, `backoff` and `setup-time`.  This value is ignored if
-`parallel` is `false`.  Note that tasks subject to restrictions on
-being run at the same time will not necessarily start in sync (or at
-all if not `slip` is allowed as part of the task's `schedule` section.
+all iterations to be the same.  The time is based on the `number` of
+times the task is run, `backoff` and `setup-time`.  This value is
+ignored if `parallel` is `false`.  Note that tasks subject to
+restrictions on being run at the same time will not necessarily start
+in sync (or at all if no `slip` is allowed as part of the task's
+`schedule` section.
 
 `task` (Object) - A pScheduler task specification as would be produced
 using the `task` command's `--export` switch.
@@ -57,7 +60,7 @@ is being transformed.  The script should operate on the input in
 place.
 
 
-For example, this task will run five sequential `rtt` tests to
+For example, this job will run five sequential `rtt` tests to
 `www.perfsonar.net` with 5, 10, 15, 20 and 25 pings sent:
 
 ```
@@ -86,7 +89,7 @@ For example, this task will run five sequential `rtt` tests to
 
 The program outputs the input as provided but adds an array of
 results, each of which is the run as pulled from the pScheduler API
-after the task completes.
+after the job completes.
 
 ```
 {
@@ -124,7 +127,7 @@ which could result in process growth.
 
 ## Tips and Tricks
 
-### Running Different Tasks in Parallel
+### Running Different Tests as Part of the Same Job
 
 Different tests can be run in parallel by using the `task-transform`
 to alter the contents of the `test` pair for each iteration.

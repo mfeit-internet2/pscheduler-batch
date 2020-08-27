@@ -5,8 +5,7 @@
     "#": "NOTES:",
     "#": "Several items marked TODO: need to be resolved.",
 
-
-    "tasks": [
+    "jobs": [
 
 	{
 	    "label": "L1",
