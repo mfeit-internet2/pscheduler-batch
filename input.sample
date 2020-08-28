@@ -1,7 +1,20 @@
 {
-    "global": {    
-        "#": "This data is made available as $global in all task transforms.",
-        "count_multiplier": 2
+    "global": {
+
+	"#": "This is made available to all transforms as $global.",
+	"data": {
+            "#": "This data is made available as $global in all task transforms.",
+            "count_multiplier": 2,
+
+	    "sponsor": "This measurement is brought to you by perfSONAR."
+	},
+
+	"#": "This is applied to all jobs",
+	"job-transform": {
+	    "script": [
+		".task.reference.sponsor = $global.sponsor"
+	    ]
+	}
     },
 
     "jobs": [

@@ -85,17 +85,12 @@ def transformed_spec(spec, transform, iteration=0, globaldata=None):
     if transform is None:
         return spec
 
-    # We overwrite this, so don't clobber the original.
-    result = copy.deepcopy(spec)
-
     filterer = jq_filter(transform, args={
         "global": globaldata,
         "iteration": iteration
     })
 
-    result = filterer(result)[0]
-
-    return result
+    return filterer(spec)[0]
 
 
 
