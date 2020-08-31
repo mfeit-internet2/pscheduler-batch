@@ -52,7 +52,11 @@ def jq_filter(transform, args={}):
     TODO: Fix production.
     """
 
-    script = transform["script"]
+    if transform is None:
+        script = "."
+    else:
+        script = transform["script"]
+
     if isinstance(script, list):
         script = "\n".join(script)
 
@@ -99,7 +103,7 @@ def run_task(task_args):
     Run a single task and return the result.
     """
 
-    label, delay, spec, log = task_args
+    label, delay, spec = task_args
 
     log.debug("%s: Spec is %s", label, pscheduler.json_dump(spec, pretty=True))
 
@@ -225,7 +229,10 @@ def run_task(task_args):
         run_data.append(run_set)
 
 
-    return run_data
+    return {
+        "task": spec,
+        "runs": run_data
+    }
 
 
 
@@ -243,6 +250,17 @@ except Exception as ex:
 INPUT_SCHEMA = {
 
     "local": {
+
+        "global": {
+            "type": "object",
+            "properties": {
+                "data": { "$ref": "#/pScheduler/AnyJSON" },
+                "transform-post": { "$ref": "#/pScheduler/JQTransformSpecification" },
+                "transform-pre": { "$ref": "#/pScheduler/JQTransformSpecification" }
+            },
+            "additionalProperties": False
+        },
+
         "job": {
             "type": "object",
             "properties": {
@@ -265,7 +283,7 @@ INPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "schema": { "type": "integer" },
-        "global": { "$ref": "#/pScheduler/AnyJSON" },
+        "global": { "$ref": "#/local/global" },
         "jobs": { 
             "type": "array",
             "items": { "$ref": "#/local/job" }
@@ -283,56 +301,161 @@ if not valid:
     pscheduler.fail(message)
 
 
-input_global = json.get("global", None)
+try:
+    global_data = json["global"]["data"]
+except KeyError:
+    global_data = None
 
-# Validate the jobs
+try:
+    global_transform_pre = json["global"]["transform-pre"]
+except KeyError:
+    global_transform_pre = { "script": "." }
+
+try:
+    global_transform_post = json["global"]["transform-post"]
+except KeyError:
+    global_transform_post = { "script": "." }
+
+
+
+# Validate and build up the jobs and do the transforms on each
+
+INTERNAL = "_internal"
+
+
+def apply_transform(data,
+                    transform,
+                    args,
+                    transform_location,
+                    runtime_location
+):
+    """
+    Apply a transform and return the results, exiting if compilation
+    or runtime fails.
+    """
+        
+    try:
+        filterer = jq_filter(transform, args=args)
+        return filterer(data)[0]
+    except ValueError as ex:
+        pscheduler.fail("At %s: %s" % (transform_location, ex))
+    except pscheduler.jqfilter.JQRuntimeError as ex:
+        pscheduler.fail("At %s: %s" % (runtime_location, ex))
+
+    assert False, "Should not be reached."
+
+
+
 for job_number, job in enumerate(json["jobs"]):
 
     if not job.get("enabled", True):
         log.debug("Skipping disabled job %d", job_number)
         continue
 
-    log.debug("Validating %s: %s",
+
+    log.debug("Preparing %s: %s",
               job.get("label", "job %d" % (job_number)),
               pscheduler.json_dump(job, pretty=True))
 
-    if "transform" in job:
-        iterations = job.get("iterations", 1)
-    else:
-        log.debug("No transform, validating only one iteration.")
-        iterations = 1
+    iterations = job.get("iterations", 1)
+
+    backoff = pscheduler.iso8601_as_timedelta(job.get("backoff", "P0D"))
+    backoff_secs = pscheduler.timedelta_as_seconds(backoff)
+
+    run_task_args = []
 
     for iteration in range(0, iterations):
         log.debug("Iteration %d", iteration)
-        try:
-            transformed = transformed_spec(job["task"], job.get("task-transform", None),
-                                           iteration, input_global)
-            log.debug("Transformed to %s", pscheduler.json_dump(transformed, pretty=True))
-        except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
-            pscheduler.fail("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
 
-        valid, message = pscheduler.json_validate(transformed, { "$ref": "#/pScheduler/TaskSpecification" })
+        transform_args = {
+            "global": global_data,
+            "iteration": iteration
+        }
+
+        log.debug("Starting with %s", pscheduler.json_dump(job["task"], pretty=True))
+
+        # Global Pre Transform
+        global_pre_transformed = apply_transform(job["task"],
+                                                 global_transform_pre,
+                                                 transform_args,
+                                                 "/global/transform-pre",
+                                                 "/jobs/%d, iteration %d, global pre-transform" % (job_number, iteration)
+                                             )
+
+        # Job Task Transform
+        job_task_transformed = apply_transform(global_pre_transformed,
+                                               job.get("task-transform"),
+                                               transform_args,
+                                               "/jobs/%d/task-transform" % (job_number),
+                                               "/jobs/%d/task-transform, iteration %d" % (job_number, iteration)
+                                           )
+
+        # Global Post Transform
+        transformed = apply_transform(job_task_transformed,
+                                      global_transform_post,
+                                      transform_args,
+                                      "/global/transform-post",
+                                      "/jobs/%d, iteration %d, global post-transform" % (job_number, iteration)
+        )
+
+
+
+        # Make sure the task back up structurally-valid
+
+        log.debug("Validating %s", pscheduler.json_dump(transformed, pretty=True))
+
+        valid, message = pscheduler.json_validate(transformed,
+                                                  { "$ref": "#/pScheduler/TaskSpecification" })
         if not valid:
             pscheduler.fail("At /jobs/%d/task iteration %d: %s" % (job_number, iteration, message))
+
+        if "schedule" in transformed:
+
+            schedule = transformed["schedule"]
+
+            # Scrub out anything that shouldn't be there.
+            for parameter in [ "start", "repeat", "repeat-cron", "until", "max-runs" ]:
+                try:
+                    del schedule[parameter]
+                except KeyError:
+                    pass  # Not there?  Don't care.
+
+        else:
+
+            transformed["schedule"] = {}
+
+
+        job["task"] = transformed
+
+        # Hold it for run time.
+        run_task_args.append((
+            "%s/%d" % (job.get("label", "unlabeled"), iteration),
+            backoff_secs * iteration,
+            transformed
+        ))
+
+    job[INTERNAL] = run_task_args
 
 
 
 # ------------------------------------------------------------------------------
 
+# Run it.
 
 for job in json["jobs"]:
 
-    iterations = job.get("iterations", 1)
     label = job.get("label", "unlabeled")
 
-    if iterations == 0 or (not job.get("enabled", True)):
+    log.debug("Job %s: %s", label, pscheduler.json_dump(job, pretty=True))
+
+    if not job.get("enabled", True):
         log.debug("%s: Disabled", label)
         job["results"] = []
         continue
 
-    spec = job["task"]
-
-    transform = job.get("task-transform", None)
+    run_task_args = job.get(INTERNAL, [])
+    iterations = len(run_task_args)
+    internal = job[INTERNAL]
 
     # TODO: It might be better to use a mutex to serialize access to
     # the server instead of backoff.
@@ -340,23 +463,8 @@ for job in json["jobs"]:
     backoff = pscheduler.iso8601_as_timedelta(job.get("backoff", "P0D"))
     backoff_secs = pscheduler.timedelta_as_seconds(backoff)
 
-    if "schedule" in spec:
-
-        schedule = spec["schedule"]
-
-        # Scrub out anything that shouldn't be there.
-        for parameter in [ "start", "repeat", "repeat-cron", "until", "max-runs" ]:
-            try:
-                del schedule[parameter]
-            except KeyError:
-                pass  # Not there?  Don't care.
-
-    else:
-
-        spec["schedule"] = {}
-
-
     parallel = job.get("parallel", False)
+
 
     if parallel and job.get("sync-start", True):
 
@@ -366,32 +474,18 @@ for job in json["jobs"]:
         start = pscheduler.datetime_as_iso8601(pscheduler.time_now() + start_delay)
 
         log.debug("%s: Pushing start out %s to %s", label, start_delay, start)
-        spec["schedule"]["start"] = start
 
-
-    run_task_args = []
-
-    for iteration in range(0,iterations):
-
-        label_num = "%s/%d" % (label, iteration)
-
-        # This will have been tried during validation, but safety can't hurt.
-        try:
-            transformed = transformed_spec(job["task"], transform, iteration, input_global)
-        except (ValueError, pscheduler.jqfilter.JQRuntimeError) as ex:
-            pscheduler.fail("At /jobs/%d/task-transform iteration %d: %s" % (job_number, iteration, ex))
-
-        run_task_args.append((label_num,
-                              backoff_secs * iteration,
-                              transformed,
-                              log))
+        # Inject the schedule into all runs.
+        for run in internal:
+            label, backoff, spec = run
+            spec["schedule"]["start"] = start
 
 
     if parallel:
 
-        log.debug("%s: Parallel run of %d tasks", label, iteration)
+        log.debug("%s: Parallel run of %d tasks", label, iterations)
 
-        with multiprocessing.dummy.Pool(processes=iteration) as pool:
+        with multiprocessing.dummy.Pool(processes=iterations) as pool:
             job["results"] = list(pool.imap(run_task, run_task_args, chunksize=1))
 
     else:
@@ -400,5 +494,14 @@ for job in json["jobs"]:
 
 
 
+# Remove any leftover internal bits before printing the final result.
+
+for job in json["jobs"]:
+    try:
+        del job[INTERNAL]
+    except KeyError:
+        pass
+
+# TODO: Switch to succeed_json
 print(pscheduler.json_dump(json, pretty=True))
 pscheduler.succeed()

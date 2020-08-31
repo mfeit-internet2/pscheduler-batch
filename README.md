@@ -11,17 +11,27 @@ be folded into pSchedler as a command.
 
 ```
 {
-    "global": { ... Any JSON ... },
-    "jobs": [ ... List of jobs ... ]
+    "global": { ... },
+    "jobs": [ ... ]
 }
 ```
 
 ### `global`
 
-The `global` pair is an optional block of arbitrary JSON which is made
-available to all task transforms (see `task-transform`, below).
+The `global` pair is an optional JSON object containing data and
+transforms provided or applied to all jobs.  It contains the following
+pairs, all optional:
 
-If not provided, its value will be `null`.
+`data` (Any JSON) - Data made available to all transforms (see
+`transform-pre`, `transform-post` and `task-transform`, below) in a
+variable named `$global`.
+
+`transform-pre` (pScheduler JQ Transform) - A transform applied to all
+jobs before anything else.
+
+`transform-post` (pScheduler JQ Transform) - A transform applied to
+all jobs after `transform-pre` and the job's `task-transform` have
+been applied.
 
 
 ### `jobs`
@@ -38,12 +48,12 @@ Defaults to `true`.
 
 `parallel` (Boolean) - Whether or not the job's iterations should be
 run in parallel.  This defaults to `false` and implies `sync-start`
-unless `sync-start` is explicitly set `false`.
+(see below) unless `sync-start` is explicitly set `false`.
 
 `setup-time` (Boolean) - The amount of time expected for pScheduler to
 set up a single run.  The default of `PT15S` should be more than
 sufficient in most cases.  This is ignored if not doing a synchronized
-start (see `sync-start`).
+start (see `sync-start`, below).
 
 `backoff` (String) - ISO8601 duration indicating how long each
 iteration run in parallel waits before being submitted to pScheduler.
@@ -62,7 +72,7 @@ in sync (or at all if no `slip` is allowed as part of the task's
 `task` (Object) - A pScheduler task specification as would be produced
 using the `task` command's `--export` switch.
 
-`task-transform` - A jq transform that operates the `task` section for
+`task-transform` - A jq transform that operates the `task`'s value for
 each iteration to make iteration-specific changes.  The `$iteration`
 variable is provided to indicate which iteration (starting with `0`)
 is being transformed.  The script should operate on the input in
@@ -88,7 +98,7 @@ For example, this job will run five sequential `rtt` tests to
     },
     "task-transform": {
 	"script": [
-	    ".test.spec.count = ($iteration + 1) * 2"
+	    ".test.spec.count = ($iteration + 1) * 5"
 	]
     }
 }
@@ -97,7 +107,7 @@ For example, this job will run five sequential `rtt` tests to
 ## Output
 
 The program outputs the input as provided but adds an array of
-results, each of which is the run as pulled from the pScheduler API
+`results`, each of which is the run as pulled from the pScheduler API
 after the job completes.
 
 ```
@@ -106,29 +116,27 @@ after the job completes.
     "iterations": 5,
     "parallel": false,
     "task": { ... },
-    "test-transform": { ... },
+    "task-transform": { ... },
     "results": [
-        [ { ... Run 0 Result 0... }, { ... Run 0 Result 1... }, ... ],
-        [ { ... Run 1 Result 0... }, { ... Run 1 Result 1... }, ... ],
-        [ { ... Run 2 Result 0... }, { ... Run 2 Result 1... }, ... ],
-        [ { ... Run 3 Result 0... }, { ... Run 3 Result 1... }, ... ],
-        [ { ... Run 4 Result 0... }, { ... Run 4 Result 1... }, ... ]
+        { "task": { ... }, "runs": [ { Run result 0 }, ..., { Run Result n } ] },
+        { "task": { ... }, "runs": [ { Run result 0 }, ..., { Run Result n } ] },
+        ...
+        { "task": { ... }, "runs": [ { Run result 0 }, ..., { Run Result n } ] }
     ]
 }
 ```
 
 Each result is a JSON object containing the following pairs:
 
-`application/json` (Object) - Result as raw JSON
+`task` (Object) - The task that was run.
 
-`text/plain` (String) - Result as plain text.
-
-`text/html` (String) - Result as HTML.
+`runs` (Array of Objects) - The run results produced by the task.
+Each result is an object containing pairs named `application/json`,
+`text/plain` and `text/html` for the pScheduler-supported output
+formats.
 
 
 ## Known Deficiences
-
-The input is not validated for correctness.
 
 All results are held in memory until the whole batch is finished,
 which could result in process growth.
@@ -183,10 +191,14 @@ beforehand and afterward.
 	    ]
 
 	},
-	"test": { }
+	"test": { "#": "This is intentionally empty" }
     },
     "task-transform": {
-	"script": ".test = .reference.tests[$iteration]"
+	"script": [
+            "# Pluck the test out of the refernce section and replace",
+            "# the test section of the task with its contents.",
+            ".test = .reference.tests[$iteration]"
+        ]
     }
 }
 ```

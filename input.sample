@@ -3,24 +3,40 @@
 
 	"#": "This is made available to all transforms as $global.",
 	"data": {
-            "#": "This data is made available as $global in all task transforms.",
             "count_multiplier": 2,
-
-	    "sponsor": "This measurement is brought to you by perfSONAR."
+	    "sponsor": "This measurement is brought to you by perfSONAR.",
+	    "dest": "www.perfsonar.net"
 	},
 
-	"#": "This is applied to all jobs",
-	"job-transform": {
+	"#": "This is applied to all tasks before their task-transform",
+	"transform-pre": {
 	    "script": [
-		".task.reference.sponsor = $global.sponsor"
+		"  .reference.before = \"This was inserted first.\"",
+		"| .reference.sponsor = $global.sponsor",
+		"| .reference.iteration = $iteration"
+	    ]
+	},
+
+	"#": "This is applied to all tasks after their task-transform",
+	"transform-post": {
+	    "script": [
+		"  .reference.after = \"This was inserted last.\"",
+
+		"# Apply the destination",
+		"| if (.test.spec | has(\"dest\"))",
+		"    then .test.spec.dest = $global.dest",
+		"    else . end"
 	    ]
 	}
+
+
     },
 
     "jobs": [
 	{
 	    "#": "Runs three idle tests serially",
 
+	    "enabled": true,
 	    "label": "idle",
 	    "iterations": 3,
 	    "parallel": false,
@@ -49,7 +65,7 @@
 		    "type": "rtt",
 		    "spec": {
 			"schema": 1,
-			"dest": "www.perfsonar.net"
+			"dest": "** Filled in by the global transform **"
 		    }
 		}
 	    },
@@ -63,13 +79,13 @@
 	{
 	    "label": "trace",
 	    "iterations": 3,
-	    "enabled": false,
+	    "enabled": true,
 	    "task": {
 		"test": {
 		    "type": "trace",
 		    "spec": {
 			"schema": 1,
-			"dest": "www.perfsonar.net"
+			"dest": "** Filled in by the global transform **"
 		    }
 		}
 	    }
@@ -78,6 +94,7 @@
 	{
 	    "#": "Runs a single idlebgm that will return multiple results.",
 
+	    "enabled": true,
 	    "label": "idlebgm",
 	    "iterations": 1,
 	    "parallel": false,
@@ -92,5 +109,6 @@
 		}
 	    }
 	}
+
     ]
 }

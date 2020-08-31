@@ -6,11 +6,38 @@
     "#": "Several items marked TODO: need to be resolved.",
 
     "global": {
-	"source": null,
-	"dest": "tb-el7-prod.ps.dev.internet2.edu",
-	"throughput": {
-	    "tool": "iperf2",
-	    "cores": 6
+
+	"#": "Data available to all transforms as $global",
+	"data": {
+	    "source": null,
+	    "dest": "tb-el7-prod.ps.dev.internet2.edu",
+	    "throughput": {
+		"tool": "iperf2",
+		"cores": 6
+	    }
+	},
+
+	"#": "Transform run before the job's task transform",
+	"#transform-pre": {
+	    "script": [
+		"."
+	    ]
+	},
+
+	"#": "Transform run after the job's task transform",
+	"transform-post": {
+	    "script": [
+
+		"# Apply the destination",
+		"  if (.test.spec | has(\"dest\"))",
+		"    then .test.spec.dest = $global.dest",
+		"    else . end",
+
+		"# Tests with a dest get an explicit source if one is defined.",
+		"| if (.test.spec | has(\"dest\")) and $global.source != null",
+                "    then .test.spec.source = $global.source",
+                "    else del(.test.spec.source) end"
+	    ]
 	}
     },
 
@@ -28,7 +55,8 @@
 		},
 		"test": {
 		    "spec": {
-			"dest": "__DEST__",
+			"source": "** Filled in by the global transform **",
+			"dest": "** Filled in by the global transform **",
 			"packet-count": 600,
 			"packet-interval": 1.0,
 			"schema": 1
@@ -40,9 +68,6 @@
 		"script": [
 		    "  if $global.source != null",
 		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
 		    "  else . end"
 		]
 	    }
@@ -60,7 +85,7 @@
 		},
 		"test": {
 		    "spec": {
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"packet-count": 3000,
 			"packet-interval": 0.1,
 			"schema": 1
@@ -72,9 +97,6 @@
 		"script": [
 		    "  if $global.source != null",
 		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
 		    "  else . end"
 		]
 	    }
@@ -92,7 +114,7 @@
 		},
 		"test": {
 		    "spec": {
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"packet-count": 30000,
 			"packet-interval": 0.01,
 			"schema": 1
@@ -104,9 +126,6 @@
 		"script": [
 		    "  if $global.source != null",
 		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
 		    "  else . end"
 		]
 	    }
@@ -125,20 +144,10 @@
 		"test": {
 		    "type": "latancybg",
 		    "spec": {
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"#": "TODO: Parameters for this are TBD in the document."
 		    }
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
-		    "  else . end"
-		]
 	    }
 	},
 
@@ -159,23 +168,13 @@
 		},
 		"test": {
 		    "spec": {
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"packet-count": 3000,
 			"packet-interval": 0.1,
 			"schema": 1
 		    },
 		    "type": "latency"
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
-		    "  else . end"
-		]
 	    }
 	},
 
@@ -194,7 +193,7 @@
 		    "type": "throughput",
 		    "spec": {
 			"schema": 1,
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"duration": "PT5M",
 			"interval": "PT1S",
 			"udp": false,
@@ -202,18 +201,6 @@
 			"#zero-copy": true
 		    }
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
-		    "  else . end",
-		    "| .tools = [ $global.throughput.tool ]",
-		    "| .test.spec.parallel = $global.throughput.cores"
-		]
 	    }
 	},
 
@@ -233,7 +220,7 @@
 			    "type": "latencybg",
 			    "spec": {
 				"schema": 1,
-				"dest": "__DEST__",
+				"dest": "** Filled in by the global transform **",
 				"#": "TODO: Need the rest of the parameters for this."
 			    }
 			},
@@ -241,7 +228,7 @@
 			    "type": "throughput",
 			    "spec": {
 				"schema": 1,
-				"dest": "__DEST__",
+				"dest": "** Filled in by the global transform **",
 				"duration": "PT5M",
 				"interval": "PT30S",
 				"udp": false
@@ -256,15 +243,7 @@
 	    },
 	    "task-transform": {
 		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
-		    "  else . end",
-		    "| .test = .reference.tests[$iteration]",
-		    "| .tools = [ $global.throughput.tool ]",
-		    "| .test.spec.parallel = $global.throughput.cores"
+		    ".test = .reference.tests[$iteration]"
 		]
 	    }
 	},
@@ -283,7 +262,7 @@
 		    "type": "throughput",
 		    "spec": {
 			"schema": 1,
-			"dest": "__DEST__",
+			"dest": "** Filled in by the global transform **",
 			"duration": "PT5M",
 			"interval": "PT5S",
 			"udp": true
@@ -292,18 +271,10 @@
 	    },
 	    "task-transform": {
 		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end",
-		    "| if $global.dest != null",
-		    "  then .test.spec.dest = $global.dest",
-		    "  else . end",
-		    "| if $iteration == 0",
-		    "  then .test.spec.bandwidth = 1000000000",
-		    "  else .test.spec.bandwidth = ($iteration + 1) * 1000000000",
-		    "  end",
-		    "| .tools = [ $global.throughput.tool ]",
-		    "| .test.spec.parallel = $global.throughput.cores"
+		    "if $iteration == 0",
+		    "then .test.spec.bandwidth = 1000000000",
+		    "else .test.spec.bandwidth = ($iteration + 1) * 1000000000",
+		    "end"
 		]
 	    }
 	}
