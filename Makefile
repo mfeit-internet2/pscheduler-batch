@@ -8,8 +8,6 @@ INPUT=input.sample
 LOG=debug
 OUTPUT=result
 
-
-# TODO: This should tee stderr to $(LOG)
 $(OUTPUT): $(INPUT) batch Makefile
 	python2 -c 'import pscheduler' 2>/dev/null \
 	&& PYTHON=python2 || PYTHON=python3 \
