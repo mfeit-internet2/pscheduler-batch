@@ -2,30 +2,28 @@
 # Test Makefile
 #
 
-default: test
+default: run
 
 INPUT=input.sample
-LOG=run.log
-RESULT=result
+LOG=debug
+OUTPUT=result
 
-DEST=tb-el7-prod.ps.dev.internet2.edu
-
-REAL_INPUT=$(INPUT).real
-$(REAL_INPUT): $(INPUT)
-	sed -e 's/__DEST__/$(DEST)/g' < $< >$@
-TO_CLEAN += $(REAL_INPUT)
 
 # TODO: This should tee stderr to $(LOG)
-$(RESULT): $(REAL_INPUT) batch
+$(OUTPUT): $(INPUT) batch Makefile
 	python2 -c 'import pscheduler' 2>/dev/null \
-	&& python2 ./batch $(RUN_ARGS) --debug < $(REAL_INPUT) > $(RESULT) \
-	|| python3 ./batch $(RUN_ARGS) --debug < $(REAL_INPUT) > $(RESULT)
-TO_CLEAN += $(RESULT) $(LOG)
+	&& PYTHON=python2 || PYTHON=python3 \
+	&& ($$PYTHON ./batch $(RUN_ARGS) --debug < $(INPUT) > $(OUTPUT)) \
+	   3>&1 1>&2 2>&3 | tee $(LOG)
+TO_CLEAN += $(OUTPUT) $(LOG)
+
+
+run: $(OUTPUT)
+
 
 dry:
-	$(MAKE) RUN_ARGS=--dry default
+	$(MAKE) RUN_ARGS=--dry run
 
-test: $(RESULT)
 
 clean:
 	rm -rf $(TO_CLEAN) *~
