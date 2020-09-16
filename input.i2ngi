@@ -63,13 +63,6 @@
 		    },
 		    "type": "latency"
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end"
-		]
 	    }
 	},
 
@@ -92,13 +85,6 @@
 		    },
 		    "type": "latency"
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end"
-		]
 	    }
 	},
 
@@ -121,13 +107,6 @@
 		    },
 		    "type": "latency"
 		}
-	    },
-	    "task-transform": {
-		"script": [
-		    "  if $global.source != null",
-		    "  then .test.spec.source = $global.source",
-		    "  else . end"
-		]
 	    }
 	},
 
