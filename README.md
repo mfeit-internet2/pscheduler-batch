@@ -1,4 +1,5 @@
 # pscheduler-batch
 Batch Runner for pScheduler
 
-Docs have been moved into the pScheduler documentation.
+The code for this feature and its documentation have been merged into
+pScheduler.
